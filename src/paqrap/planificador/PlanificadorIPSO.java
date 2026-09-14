@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import paqrap.model.Almacen;
 import paqrap.model.Bloqueo;
+import paqrap.model.MantenimientoPreventivo;
 import paqrap.model.Pedido;
 import paqrap.model.PuntoMapa;
 import paqrap.model.Reasignacion;
@@ -54,6 +55,17 @@ public class PlanificadorIPSO implements Planificador {
 
     public void registrarBloqueo(Bloqueo bloqueo) {
         bloqueosActivos.add(bloqueo);
+    }
+
+    public void registrarMantenimiento(MantenimientoPreventivo mantenimiento) {
+        for (Vehiculo vehiculo : flota) {
+            if (vehiculo.getIdVehiculo().equals(mantenimiento.getIdVehiculo())) {
+                vehiculo.registrarMantenimiento(mantenimiento.getFecha());
+                return;
+            }
+        }
+        throw new IllegalArgumentException(
+                "No existe la unidad de transporte " + mantenimiento.getIdVehiculo());
     }
 
     public void avanzarTiempo(LocalDateTime nuevoInstante) {
@@ -108,7 +120,8 @@ public class PlanificadorIPSO implements Planificador {
                 continue;
             }
             Bloqueo bloqueoCausante = detectarBloqueoQueAfecta(ruta);
-            boolean averiada = !ruta.getVehiculoAsignado().isDisponible();
+            boolean averiada = !ruta.getVehiculoAsignado().isDisponible()
+                    || ruta.getVehiculoAsignado().estaEnMantenimiento(instanteActual.toLocalDate());
 
             if (bloqueoCausante == null && !averiada) {
                 continue;
@@ -173,5 +186,24 @@ public class PlanificadorIPSO implements Planificador {
 
     public List<Pedido> getPedidosPendientes() {
         return pedidosPendientes;
+    }
+
+    public void imprimirPedidosPendientes() {
+        System.out.println("Pedidos pendientes (" + pedidosPendientes.size() + "):");
+        if (pedidosPendientes.isEmpty()) {
+            System.out.println("  (ninguno)");
+            return;
+        }
+        for (Pedido pedido : pedidosPendientes) {
+            System.out.printf("  %s | cliente=%s | posicion=(%d,%d) | cantidad=%d"
+                            + " | limite=%s | estado=%s%n",
+                    pedido.getIdPedido(),
+                    pedido.getIdCliente(),
+                    pedido.getPosX(),
+                    pedido.getPosY(),
+                    pedido.getCantidadSolicitada(),
+                    pedido.calcularFechaLimite(),
+                    pedido.getEstado());
+        }
     }
 }

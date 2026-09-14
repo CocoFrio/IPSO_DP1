@@ -40,13 +40,14 @@ public class ClusterizadorPedidos {
                                            LocalDateTime instanteReferencia) {
 
         List<Pedido> pendientes = new ArrayList<>(pedidosPendientes);
-        // Prioridad: pedidos con plazo límite más próximo primero (semáforo ámbar/rojo primero)
+        // El primer pedido de cada lote es siempre el de vencimiento más próximo.
+        // Después se agregan pedidos compatibles hasta aprovechar la capacidad.
         pendientes.sort(Comparator.comparing(Pedido::calcularFechaLimite));
 
         List<LoteVehiculo> lotes = new ArrayList<>();
 
         for (Vehiculo vehiculo : flotaDisponible) {
-            if (pendientes.isEmpty() || !vehiculo.isDisponible()) {
+            if (pendientes.isEmpty() || !vehiculo.disponibleEnInstante(instanteReferencia)) {
                 continue;
             }
 
@@ -83,6 +84,7 @@ public class ClusterizadorPedidos {
     private Pedido siguienteMasCercanoQueQuepa(List<Pedido> pendientes, int cargaAcumulada,
                                                 Vehiculo vehiculo, PuntoMapa referencia, Almacen almacen) {
         Pedido mejor = null;
+        Pedido pedidoConVencimientoMasProximo = null;
         double mejorDistancia = Double.MAX_VALUE;
         for (Pedido p : pendientes) {
             int cargaSiSeAgrega = cargaAcumulada + p.getCantidadSolicitada();
@@ -92,10 +94,20 @@ public class ClusterizadorPedidos {
             if (!almacen.tieneStock(cargaSiSeAgrega)) {
                 continue;
             }
+            if (pedidoConVencimientoMasProximo != null
+                    && p.calcularFechaLimite().isAfter(
+                            pedidoConVencimientoMasProximo.calcularFechaLimite())) {
+                continue;
+            }
+
             double dist = distanciaManhattan(p, referencia);
-            if (dist < mejorDistancia) {
+            if (pedidoConVencimientoMasProximo == null
+                    || p.calcularFechaLimite().isBefore(
+                            pedidoConVencimientoMasProximo.calcularFechaLimite())
+                    || dist < mejorDistancia) {
+                pedidoConVencimientoMasProximo = p;
                 mejorDistancia = dist;
-                mejor = p;
+                mejor = pedidoConVencimientoMasProximo;
             }
         }
         return mejor;
