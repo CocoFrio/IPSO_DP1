@@ -63,11 +63,10 @@ public class IPSOOptimizador {
         if (n == 0) {
             return new ResultadoIPSO(new ArrayList<>(), 0.0, 0.0, true);
         }
+        construirMatrizDistancias();
         if (n == 1) {
             return traducirResultado(new int[]{0});
         }
-
-        construirMatrizDistancias();
 
         // Inicializar población P = {X_1, X_2, ..., X_N} con permutaciones
         // aleatorias de vértices V

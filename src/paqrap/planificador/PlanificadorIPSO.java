@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import paqrap.model.Almacen;
 import paqrap.model.Bloqueo;
+import paqrap.model.MantenimientoPreventivo;
 import paqrap.model.Pedido;
 import paqrap.model.PuntoMapa;
 import paqrap.model.Reasignacion;
@@ -34,6 +35,7 @@ public class PlanificadorIPSO implements Planificador {
     private final List<Vehiculo> flota;
     private final List<Almacen> almacenes;
     private final List<Bloqueo> bloqueosActivos = new ArrayList<>();
+    private final List<MantenimientoPreventivo> mantenimientos = new ArrayList<>();
     private final List<Ruta> rutasActivas = new ArrayList<>();
     private final List<Reasignacion> historialReasignaciones = new ArrayList<>();
     private final IPSOConfig config;
@@ -56,8 +58,14 @@ public class PlanificadorIPSO implements Planificador {
         bloqueosActivos.add(bloqueo);
     }
 
+    public void registrarMantenimiento(MantenimientoPreventivo mantenimiento) {
+        mantenimientos.add(mantenimiento);
+        actualizarDisponibilidadPorMantenimiento();
+    }
+
     public void avanzarTiempo(LocalDateTime nuevoInstante) {
         this.instanteActual = nuevoInstante;
+        actualizarDisponibilidadPorMantenimiento();
     }
 
     @Override
@@ -173,5 +181,31 @@ public class PlanificadorIPSO implements Planificador {
 
     public List<Pedido> getPedidosPendientes() {
         return pedidosPendientes;
+    }
+
+    public void imprimirPedidosPendientes() {
+        if (pedidosPendientes.isEmpty()) {
+            System.out.println("Pedidos pendientes: ninguno");
+            return;
+        }
+        System.out.println("Pedidos pendientes:");
+        pedidosPendientes.stream()
+                .sorted(Comparator.comparing(Pedido::calcularFechaLimite))
+                .forEach(pedido -> System.out.println("  " + pedido.getIdPedido()
+                        + " | limite: " + pedido.calcularFechaLimite()
+                        + " | estado: " + pedido.getEstado()));
+    }
+
+    private void actualizarDisponibilidadPorMantenimiento() {
+        for (Vehiculo vehiculo : flota) {
+            boolean enMantenimiento = mantenimientos.stream()
+                    .anyMatch(mantenimiento ->
+                            mantenimiento.getFecha().equals(instanteActual.toLocalDate())
+                                    && mantenimiento.getIdVehiculo()
+                                            .equalsIgnoreCase(vehiculo.getIdVehiculo()));
+            if (enMantenimiento) {
+                vehiculo.setDisponible(false);
+            }
+        }
     }
 }
